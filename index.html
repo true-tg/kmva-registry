@@ -1,0 +1,53 @@
+<!doctype html><html lang="uk"><head><title>Єдиний реєстр актів КМВА — КМДА</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="assets/coa.webp"><link rel="stylesheet" href="css/style.css"></head><body>
+<header id="top"></header>
+<div class="layout"><aside id="side"></aside><main id="content"><p class="muted">Завантаження…</p></main></div>
+<footer>Система внутрішнього користування</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script>
+(async () => {
+  const type = qs('type') || '';
+  const ctx = await initPage(type || 'all');
+  if (!ctx) return;
+  const el = document.getElementById('content');
+  const heading = type ? C.TYPES[type] : 'Усі акти';
+  el.innerHTML = `
+    <h1 class="page-h">${esc(heading)}</h1>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="Пошук за назвою або номером" aria-label="Пошук">
+      <select id="topic" aria-label="Тематика"><option value="">Усі теми</option>${C.TOPICS.map(t => `<option>${esc(t)}</option>`).join('')}</select>
+      <select id="status" aria-label="Статус"><option value="">Будь-який статус</option><option value="active">Чинні</option><option value="expired">Втратили чинність</option></select>
+    </div>
+    <div id="list"></div>
+    <p><button class="btn light" id="more" hidden>Показати ще</button></p>`;
+  let page = 0, timer;
+  async function load(reset) {
+    if (reset) { page = 0; list.innerHTML = ''; }
+    let q = sb.from('acts').select('id,act_type,number,act_date,topic,status,title', { count: 'exact' })
+      .order('act_date', { ascending: false }).order('id', { ascending: false })
+      .range(page * C.PAGE_SIZE, page * C.PAGE_SIZE + C.PAGE_SIZE - 1);
+    if (type) q = q.eq('act_type', type);
+    if (topic.value) q = q.eq('topic', topic.value);
+    if (status.value) q = q.eq('status', status.value);
+    const term = document.getElementById('q').value.replace(/[,()%*\\]/g, ' ').trim();
+    if (term) q = q.or(`title.ilike.%${term}%,number.ilike.%${term}%`);
+    const { data, count, error } = await q;
+    if (error) { list.innerHTML = '<p class="err">Не вдалося завантажити акти.</p>'; return; }
+    if (reset && !data.length) list.innerHTML = '<p class="muted">Актів за цими умовами не знайдено.</p>';
+    list.insertAdjacentHTML('beforeend', data.map(a => `
+      <article class="item">
+        <a href="act.html?id=${a.id}">${esc(actTitle(a))}</a>
+        <div class="meta">Опубліковано: ${fmtDate(a.act_date)}${a.topic ? ' | ' + esc(a.topic) : ''} |
+          <span class="badge ${a.status}">${statusLabel(a.status)}</span></div>
+      </article>`).join(''));
+    page++;
+    more.hidden = page * C.PAGE_SIZE >= count;
+  }
+  document.getElementById('q').oninput = () => { clearTimeout(timer); timer = setTimeout(() => load(true), 300); };
+  topic.onchange = status.onchange = () => load(true);
+  more.onclick = () => load(false);
+  load(true);
+})();
+</script></body></html>

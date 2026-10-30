@@ -1,0 +1,97 @@
+:root {
+  --navy: #1b2e4b; --navy-d: #12203a; --blue: #1a4f9c; --gold: #d4af37; --gold-soft: #e9d9a0;
+  --paper: #ffffff; --bg: #eceff4; --line: #cfd6e2; --grey: #6b7280; --ink: #1c2230;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 0; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Arial, Tahoma, sans-serif; }
+
+#top { background: var(--navy); color: #fff;
+  background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 2px, transparent 2px 14px); }
+.top-inner { max-width: 1160px; margin: 0 auto; padding: 14px 20px; display: flex; gap: 18px; align-items: center; }
+.coa { height: 78px; width: auto; flex: none; }
+.top-title { font: 700 20px/1.3 Georgia, 'Times New Roman', serif; max-width: 760px; }
+.top-line { height: 4px; background: repeating-linear-gradient(90deg, var(--gold) 0 18px, var(--navy-d) 18px 24px); }
+
+.layout { max-width: 1160px; margin: 0 auto; display: grid; grid-template-columns: 250px 1fr; gap: 0; min-height: 70vh; }
+#side { background: var(--navy-d); }
+#side nav { position: sticky; top: 0; display: flex; flex-direction: column; padding: 12px 0; }
+#side a { color: #dfe6f3; text-decoration: none; padding: 10px 18px; border-left: 4px solid transparent; font-size: 14px; }
+#side a:hover { background: rgba(255,255,255,.07); }
+#side a.on { border-left-color: var(--gold); background: rgba(255,255,255,.1); color: #fff; font-weight: 700; }
+.who { color: var(--gold-soft); font-size: 12px; padding: 18px 18px 4px; word-break: break-all; }
+
+#content { background: var(--paper); padding: 26px 34px 50px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); min-width: 0; }
+.page-h { font: 700 24px Georgia, 'Times New Roman', serif; margin: 0 0 16px; color: var(--navy); }
+.muted { color: var(--grey); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.toolbar input, .toolbar select { padding: 8px 10px; border: 1px solid var(--line); font: inherit; background: #fff; }
+.toolbar input[type=search] { flex: 1 1 240px; }
+
+.item { padding: 14px 0; border-bottom: 1px solid #e3e7ef; }
+.item a { font: 700 18px/1.35 Georgia, 'Times New Roman', serif; color: var(--blue); text-decoration: none; }
+.item a:hover { text-decoration: underline; }
+.meta { font-size: 12.5px; color: var(--grey); margin-top: 4px; }
+.badge { display: inline-block; padding: 1px 8px; font-size: 12px; background: #e6eefb; color: var(--blue); border: 1px solid #c4d5f2; }
+.badge.expired { background: #f6efd6; color: #7a6212; border-color: #e3d596; }
+
+.btn { background: var(--navy); color: #fff; border: 0; padding: 9px 18px; font: 700 14px Arial, sans-serif; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn:hover { background: var(--blue); }
+.btn.light { background: #fff; color: var(--navy); border: 1px solid var(--line); }
+.btn.light:hover { background: #f1f4f9; }
+.btn.danger { background: #8c2a2a; }
+.btn:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible, [contenteditable]:focus-visible { outline: 3px solid var(--gold); outline-offset: 1px; }
+
+/* Документ */
+.doc { font: 17px/1.6 'Times New Roman', Georgia, serif; max-width: 760px; }
+.doc .doc-kind { text-align: center; font-weight: 700; font-size: 20px; text-transform: none; margin: 8px 0 2px; }
+.doc .doc-ref { text-align: center; margin: 0 0 18px; }
+.doc .doc-title { text-align: center; font-weight: 700; margin: 0 auto 22px; max-width: 560px; }
+.doc-body p { text-indent: 2em; text-align: justify; margin: 0 0 .7em; }
+.doc-body ul, .doc-body ol { margin: 0 0 .8em; padding-left: 3em; }
+.doc-sign { text-align: right; font-weight: 700; margin-top: 34px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+
+/* Форми */
+.form label { display: block; font-weight: 700; font-size: 13px; margin-bottom: 14px; }
+.form input, .form select, .form textarea { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; border: 1px solid var(--line); font: 15px Arial, sans-serif; background: #fff; }
+.form.narrow { max-width: 380px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0 16px; }
+.err { color: #a12626; min-height: 20px; margin-bottom: 8px; }
+.ok { color: #1c6b3a; }
+
+.editor-bar { display: flex; flex-wrap: wrap; gap: 4px; border: 1px solid var(--line); border-bottom: 0; background: #f3f5f9; padding: 6px; }
+.editor-bar button { min-width: 34px; height: 32px; border: 1px solid var(--line); background: #fff; cursor: pointer; font: 15px Arial, sans-serif; }
+.editor-bar button:hover { background: #e6eefb; }
+.editor-bar button.on { background: var(--navy); color: #fff; }
+#ed, #src { border: 1px solid var(--line); min-height: 340px; padding: 14px 16px; width: 100%; background: #fff; }
+#ed { font: 17px/1.6 'Times New Roman', Georgia, serif; overflow: auto; }
+#ed p { margin: 0 0 .7em; text-indent: 2em; }
+#src { font: 13px/1.5 Consolas, monospace; display: none; resize: vertical; }
+
+.admin-list { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+.admin-list td, .admin-list th { border-bottom: 1px solid #e3e7ef; padding: 8px 6px; text-align: left; vertical-align: top; }
+.admin-list .row-act { white-space: nowrap; }
+
+footer { text-align: center; color: var(--grey); font-size: 12px; padding: 18px; }
+
+@media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; }
+  #side nav { position: static; flex-direction: row; flex-wrap: wrap; padding: 4px; }
+  #content { padding: 18px 16px 40px; border: 0; }
+  .coa { height: 56px; } .top-title { font-size: 15px; }
+}
+
+/* Версія для друку */
+body.print-mode { background: #fff; }
+body.print-mode #top, body.print-mode #side, body.print-mode footer, body.print-mode .actions { display: none; }
+body.print-mode .layout { display: block; max-width: none; }
+body.print-mode #content { border: 0; padding: 0; }
+@media print {
+  #top, #side, footer, .actions { display: none !important; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  #content { border: 0; padding: 0; }
+  .doc { max-width: none; }
+}
