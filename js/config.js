@@ -1,8 +1,8 @@
-// Налаштування сайту. anon-ключ Supabase публічний за задумом —
+// Налаштування сайту. Publishable-ключ Supabase публічний за задумом —
 // дані захищені політиками RLS (див. supabase/schema.sql).
 window.APP_CONFIG = {
-  SUPABASE_URL: 'https://YOUR-PROJECT.supabase.co',
-  SUPABASE_ANON_KEY: 'YOUR-ANON-PUBLIC-KEY',
+  SUPABASE_URL: 'https://uayufpswpamgeccmolcs.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_CImGwHbtrqYzbb6jd7OlPQ_s1AqXTGN',
   SITE_TITLE: 'Єдиний реєстр актів начальника Київської міської військової адміністрації — голови КМДА',
   DEFAULT_SIGNER: 'Начальник Я. ІСІКОВ',
   PAGE_SIZE: 20,
