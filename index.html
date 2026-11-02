@@ -16,7 +16,7 @@
   el.innerHTML = `
     <h1 class="page-h">${esc(heading)}</h1>
     <div class="toolbar">
-      <input type="search" id="q" placeholder="Пошук за назвою або номером" aria-label="Пошук">
+      <div class="search"><span class="ico ico-search" aria-hidden="true"></span><input type="search" id="q" placeholder="Пошук за назвою або номером" aria-label="Пошук"></div>
       <select id="topic" aria-label="Тематика"><option value="">Усі теми</option>${C.TOPICS.map(t => `<option>${esc(t)}</option>`).join('')}</select>
       <select id="status" aria-label="Статус"><option value="">Будь-який статус</option><option value="active">Чинні</option><option value="expired">Втратили чинність</option></select>
     </div>
