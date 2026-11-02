@@ -99,7 +99,7 @@
     const { data } = await sb.from('acts').select('id,act_type,number,act_date,title').order('id', { ascending: false }).limit(15);
     rows.innerHTML = (data || []).map(a => `<tr>
       <td>${fmtDate(a.act_date)}</td><td><a href="act.html?id=${a.id}">${esc(actTitle(a))}</a></td>
-      <td class="row-act"><a href="admin.html?edit=${a.id}">Редагувати</a>${isAdmin ? ` | <a href="#" data-del="${a.id}">Видалити</a>` : ''}</td></tr>`).join('');
+      <td class="row-act"><a href="admin.html?edit=${a.id}"><span class="ico ico-edit" aria-hidden="true"></span>Редагувати</a>${isAdmin ? ` | <a href="#" data-del="${a.id}">Видалити</a>` : ''}</td></tr>`).join('');
     rows.querySelectorAll('[data-del]').forEach(x => x.onclick = async ev => {
       ev.preventDefault();
       if (!confirm('Видалити акт безповоротно?')) return;
