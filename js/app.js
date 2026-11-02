@@ -23,24 +23,43 @@ function cleanHtml(html) {
 const safeBody = html => DOMPurify.sanitize(html, ALLOWED);
 
 function buildShell(active, profile) {
-  document.getElementById('top').innerHTML = `
-    <div class="top-inner">
-      <img src="assets/coa.webp" alt="Герб міста Києва" class="coa">
-      <div class="top-title">${esc(C.SITE_TITLE)}</div>
-    </div>
-    <div class="top-line"></div>`;
-  const link = (href, text, key) => `<a href="${href}" class="${active === key ? 'on' : ''}">${text}</a>`;
   const canEdit = profile && ['editor', 'admin'].includes(profile.role);
-  document.getElementById('side').innerHTML = `
-    <nav>
-      ${link('index.html', 'Усі акти', 'all')}
-      ${link('index.html?type=order', 'Розпорядження', 'order')}
-      ${link('index.html?type=ksoy', 'Рішення Комітету стратегічної оборони', 'ksoy')}
-      ${canEdit ? link('admin.html', '<span class="ico ico-add" aria-hidden="true"></span>Створити акт', 'admin') : ''}
-      ${profile ? `<span class="who"><span class="ico ico-user" aria-hidden="true"></span>${esc(profile.full_name || '')}</span><a href="#" id="logout">Вийти</a>` : ''}
-    </nav>`;
+  const title = C.HEADER_TITLE || 'Єдиний реєстр актів';
+  const sub = C.HEADER_SUBTITLE || 'начальника Київської міської військової адміністрації — голови КМДА';
+  const m = (href, text, key) => `<a href="${href}" class="${active === key ? 'on' : ''}">${text}</a>`;
+  document.getElementById('top').innerHTML = `
+    <div class="hd">
+      <div class="hd-row">
+        <div class="hd-brand"><span class="hd-flag"></span><div><b>КМВА · КМДА</b><span>Система внутрішнього користування</span></div></div>
+        <a class="hd-main" href="index.html">
+          <img src="assets/coa.webp" alt="Герб міста Києва" class="coa">
+          <span class="hd-title">${esc(title)}</span>
+          <span class="hd-sub">${esc(sub)}</span>
+        </a>
+        <ul class="hd-actions">${profile ? `
+          <li><span class="ico ico-user" aria-hidden="true"></span>${esc(profile.full_name || '')}</li>
+          <li><a href="#" id="logout"><span class="ico ico-arrow" aria-hidden="true"></span>Вийти</a></li>` : ''}</ul>
+      </div>
+      ${profile ? `<div class="hd-bottom">
+        <nav class="hd-menu" aria-label="Основне меню">
+          ${m('index.html', 'Усі акти', 'all')}
+          ${m('index.html?type=order', 'Розпорядження', 'order')}
+          ${m('index.html?type=ksoy', 'Рішення Комітету стратегічної оборони', 'ksoy')}
+          ${canEdit ? m('admin.html', '<span class="ico ico-add" aria-hidden="true"></span>Створити акт', 'admin') : ''}
+        </nav>
+        <a class="hd-search" id="hdSearch" href="index.html?focus=search"><span class="ico ico-search" aria-hidden="true"></span>Пошук</a>
+      </div>` : ''}
+    </div>`;
+  const topicNow = qs('topic') || '';
+  document.querySelector('.layout').classList.toggle('no-side', !profile);
+  document.getElementById('side').innerHTML = profile ? `
+    <nav aria-label="Тематика"><div class="side-h">Тематика</div>
+      ${C.TOPICS.map(t => `<a href="index.html?topic=${encodeURIComponent(t)}" class="${topicNow === t ? 'on' : ''}">${esc(t)}</a>`).join('')}
+    </nav>` : '';
   const lo = document.getElementById('logout');
   if (lo) lo.onclick = async e => { e.preventDefault(); await sb.auth.signOut(); location.href = 'index.html'; };
+  const hs = document.getElementById('hdSearch');
+  if (hs) hs.onclick = e => { const q = document.getElementById('q'); if (q) { e.preventDefault(); q.focus(); } };
 }
 
 function showLogin() {
