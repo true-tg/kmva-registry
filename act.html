@@ -20,9 +20,9 @@
   const canEdit = ['editor', 'admin'].includes(ctx.profile.role);
   el.innerHTML = `
     <div class="actions">
-      <a class="btn light" href="index.html">← До списку</a>
-      <a class="btn light" href="act.html?id=${a.id}&print=1" target="_blank" rel="noopener">🖨️ Версія для друку</a>
-      ${canEdit ? `<a class="btn light" href="admin.html?edit=${a.id}">Редагувати</a>` : ''}
+      <a class="btn light" href="index.html"><span class="ico ico-arrow flip" aria-hidden="true"></span>До списку</a>
+      <a class="btn light" href="act.html?id=${a.id}&print=1" target="_blank" rel="noopener"><span class="ico ico-print" aria-hidden="true"></span>Версія для друку</a>
+      ${canEdit ? `<a class="btn light" href="admin.html?edit=${a.id}"><span class="ico ico-edit" aria-hidden="true"></span>Редагувати</a>` : ''}
     </div>
     <article class="doc">
       <p class="doc-kind">${esc((C.TYPES[a.act_type] || '').toUpperCase())}</p>
