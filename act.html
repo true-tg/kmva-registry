@@ -13,24 +13,40 @@
   const ctx = await initPage('');
   if (!ctx) return;
   const id = Number(qs('id'));
-  const { data: a, error } = await sb.from('acts').select('*').eq('id', id).single();
   const el = document.getElementById('content');
+  const { data: a, error } = await sb.from('acts').select('*').eq('id', id).single();
   if (error || !a) { el.innerHTML = '<p class="err">Акт не знайдено.</p><a class="btn light" href="index.html">До списку</a>'; return; }
   document.title = actTitle(a);
-  const canEdit = ['editor', 'admin'].includes(ctx.profile.role);
+  const canEdit = !isPublic() && ['editor', 'admin'].includes(ctx.profile.role);
+
+  // зв'язки: який акт змінює цей і які акти змінюють його (працює після міграції amends_id)
+  let parent = null, children = [];
+  if (a.amends_id) {
+    const r = await sb.from('acts').select('id,act_type,number,act_date,title').eq('id', a.amends_id).single();
+    parent = r.data || null;
+  }
+  const rc = await sb.from('acts').select('id,act_type,number,act_date,title').eq('amends_id', a.id).order('act_date');
+  if (!rc.error) children = rc.data || [];
+  const rel = x => `<a href="act.html?id=${x.id}">${esc(C.TYPES[x.act_type] || '')} від ${fmtLong(x.act_date)} № ${esc(x.number)}</a>`;
+
   el.innerHTML = `
     <div class="actions">
       <a class="btn light" href="index.html"><span class="ico ico-arrow flip" aria-hidden="true"></span>До списку</a>
       <a class="btn light" href="act.html?id=${a.id}&print=1" target="_blank" rel="noopener"><span class="ico ico-print" aria-hidden="true"></span>Версія для друку</a>
-      ${canEdit ? `<a class="btn light" href="admin.html?edit=${a.id}"><span class="ico ico-edit" aria-hidden="true"></span>Редагувати</a>` : ''}
+      ${canEdit ? `<a class="btn light" href="admin.html?edit=${a.id}"><span class="ico ico-edit" aria-hidden="true"></span>Редагувати</a>
+      <a class="btn" href="admin.html?amend=${a.id}"><span class="ico ico-add" aria-hidden="true"></span>Створити акт про зміни</a>` : ''}
     </div>
     <article class="doc">
-      <p class="doc-kind">${esc((C.TYPES[a.act_type] || '').toUpperCase())}</p>
-      <p class="doc-ref">від ${fmtDate(a.act_date)} № ${esc(a.number)}</p>
+      <p class="doc-org">${esc(DOC_ORG)}</p>
+      <p class="doc-kind">${esc(C.TYPES[a.act_type] || '')}</p>
+      <p class="doc-ref">від ${fmtLong(a.act_date)} № ${esc(a.number)}</p>
+      <p class="doc-city">${esc(DOC_CITY)}</p>
       <p class="doc-title">${esc(a.title)}</p>
       <div class="doc-body">${safeBody(a.body)}</div>
       ${a.signer ? `<p class="doc-sign">${esc(a.signer)}</p>` : ''}
-      <p class="meta">Статус: <span class="badge ${a.status}">${statusLabel(a.status)}</span>${a.topic ? ' | ' + esc(a.topic) : ''}</p>
+      ${parent ? `<div class="doc-rel">Цей акт вносить зміни до: ${rel(parent)} «${esc(parent.title)}»</div>` : ''}
+      ${children.length ? `<div class="doc-rel">Акти про внесення змін до цього акта:<ul>${children.map(c => `<li>${rel(c)}</li>`).join('')}</ul></div>` : ''}
+      <p class="meta">Статус: <span class="badge ${a.status}">${statusLabel(a.status)}</span></p>
     </article>`;
   if (printMode) setTimeout(() => window.print(), 300);
 })();
