@@ -36,8 +36,8 @@ function buildShell(active, profile) {
       ${link('index.html', 'Усі акти', 'all')}
       ${link('index.html?type=order', 'Розпорядження', 'order')}
       ${link('index.html?type=ksoy', 'Рішення Комітету стратегічної оборони', 'ksoy')}
-      ${canEdit ? link('admin.html', 'Створити акт', 'admin') : ''}
-      ${profile ? `<span class="who">${esc(profile.full_name || '')}</span><a href="#" id="logout">Вийти</a>` : ''}
+      ${canEdit ? link('admin.html', '<span class="ico ico-add" aria-hidden="true"></span>Створити акт', 'admin') : ''}
+      ${profile ? `<span class="who"><span class="ico ico-user" aria-hidden="true"></span>${esc(profile.full_name || '')}</span><a href="#" id="logout">Вийти</a>` : ''}
     </nav>`;
   const lo = document.getElementById('logout');
   if (lo) lo.onclick = async e => { e.preventDefault(); await sb.auth.signOut(); location.href = 'index.html'; };
