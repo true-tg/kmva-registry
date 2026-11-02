@@ -1,4 +1,4 @@
-<!doctype html><html lang="uk"><head><title>Єдиний реєстр актів КМВА — КМДА</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="assets/coa.webp"><link rel="stylesheet" href="css/style.css"></head><body>
+<!doctype html><html lang="uk"><head><title>Єдиний реєстр актів КМВА — КМДА</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="assets/coa.webp"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap&subset=cyrillic" rel="stylesheet"><link rel="stylesheet" href="css/style.css"></head><body>
 <header id="top"></header>
 <div class="layout"><aside id="side"></aside><main id="content"><p class="muted">Завантаження…</p></main></div>
 <footer>Система внутрішнього користування</footer>
@@ -38,9 +38,8 @@
     if (reset && !data.length) list.innerHTML = '<p class="muted">Актів за цими умовами не знайдено.</p>';
     list.insertAdjacentHTML('beforeend', data.map(a => `
       <article class="item">
-        <a href="act.html?id=${a.id}">${esc(actTitle(a))}</a>
-        <div class="meta">Опубліковано: ${fmtDate(a.act_date)}${a.topic ? ' | ' + esc(a.topic) : ''} |
-          <span class="badge ${a.status}">${statusLabel(a.status)}</span></div>
+        <div class="item-head">${esc(C.TYPES[a.act_type] || '')} від ${fmtDate(a.act_date)} № ${esc(a.number)}${a.status === 'expired' ? ' <span class="item-exp">втратило чинність</span>' : ''}</div>
+        <a class="item-link" href="act.html?id=${a.id}">${esc(a.title)}</a>
       </article>`).join(''));
     page++;
     more.hidden = page * C.PAGE_SIZE >= count;
