@@ -29,9 +29,12 @@ body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Arial
 .toolbar input, .toolbar select { padding: 8px 10px; border: 1px solid var(--line); font: inherit; background: #fff; }
 .toolbar input[type=search] { flex: 1 1 240px; }
 
-.item { padding: 14px 0; border-bottom: 1px solid #e3e7ef; }
-.item a { font: 700 18px/1.35 Georgia, 'Times New Roman', serif; color: var(--blue); text-decoration: none; }
-.item a:hover { text-decoration: underline; }
+/* Список актів */
+.item { padding: 16px 0 18px; border-bottom: 1px solid #e3e7ef; font-family: 'Montserrat', Arial, sans-serif; }
+.item-head { font-size: 16px; font-weight: 500; color: #1c2230; line-height: 1.4; }
+.item-exp { color: #8a6d12; font-size: 13px; margin-left: 6px; }
+.item-link { display: block; margin-top: 4px; font-size: 18px; font-weight: 500; line-height: 1.45; color: #2c5fd0; text-decoration: none; }
+.item-link:hover { text-decoration: underline; }
 .meta { font-size: 12.5px; color: var(--grey); margin-top: 4px; }
 .badge { display: inline-block; padding: 1px 8px; font-size: 12px; background: #e6eefb; color: var(--blue); border: 1px solid #c4d5f2; }
 .badge.expired { background: #f6efd6; color: #7a6212; border-color: #e3d596; }
