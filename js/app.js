@@ -8,8 +8,6 @@ const actTitle = a => `${C.TYPES[a.act_type] || ''} № ${a.number} «${a.title}
 const qs = k => new URLSearchParams(location.search).get(k);
 const fmtLong = d => new Date(d + 'T00:00:00').toLocaleDateString('uk-UA', {day:'numeric', month:'long', year:'numeric'}).replace(/\s*р\.?$/, '') + ' р.';
 const GEN = { order: 'розпорядження', ksoy: 'рішення Комітету стратегічної оборони Києва' };
-const DOC_ORG = C.DOC_ORG || 'Київська міська військова адміністрація';
-const DOC_CITY = C.DOC_CITY || 'Київ';
 // Режим перегляду для громадян (лише попередній перегляд, зберігається на час сесії браузера)
 function isPublic() { try { return sessionStorage.getItem('viewMode') === 'public'; } catch (e) { return false; } }
 function setViewMode(m) { try { sessionStorage.setItem('viewMode', m); } catch (e) {} location.reload(); }
