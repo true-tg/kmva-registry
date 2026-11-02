@@ -10,23 +10,27 @@
 (async () => {
   const ctx = await initPage('admin');
   if (!ctx) return;
-  const el = document.getElementById('content');
+  if (isPublic()) { location.replace('index.html'); return; }
+  const $ = id => document.getElementById(id);
+  const el = $('content');
   if (!['editor', 'admin'].includes(ctx.profile.role)) {
     el.innerHTML = '<p class="err">Недостатньо прав. Доступ мають лише уповноважені співробітники.</p>'; return;
   }
   const isAdmin = ctx.profile.role === 'admin';
   const editId = qs('edit') ? Number(qs('edit')) : null;
+  const amendId = qs('amend') ? Number(qs('amend')) : null;
+
   el.innerHTML = `
     <h1 class="page-h" id="h">Створити акт</h1>
+    <div id="amendInfo"></div>
     <form id="f" class="form">
       <div class="grid2">
         <label>Вид акта<select id="act_type">${Object.entries(C.TYPES).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
-        <label>Номер акта<input id="number" required maxlength="40"></label>
+        <label>Номер акта<input id="number" required maxlength="60"></label>
         <label>Дата<input type="date" id="act_date" required></label>
-        <label>Тематика<select id="topic">${C.TOPICS.map(t => `<option>${esc(t)}</option>`).join('')}</select></label>
         <label>Статус<select id="status"><option value="active">Чинний</option><option value="expired">Втратив чинність</option></select></label>
       </div>
-      <label>Назва акта<input id="title" required maxlength="500"></label>
+      <label>Назва акта<input id="title" required maxlength="600"></label>
       <label>Текст акта</label>
       <div class="editor-bar" role="toolbar" aria-label="Форматування">
         <button type="button" data-c="bold" title="Жирний"><b>B</b></button>
@@ -46,22 +50,22 @@
       <label style="margin-top:14px">Підпис<input id="signer" maxlength="200"></label>
       <div id="msg" class="err" role="status"></div>
       <button class="btn" type="submit" id="save">Додати на сайт</button>
-      ${editId ? '<a class="btn light" href="admin.html">Скасувати</a>' : ''}
+      ${editId || amendId ? '<a class="btn light" href="admin.html">Скасувати</a>' : ''}
     </form>
     <h2 class="page-h" style="margin-top:40px;font-size:19px">Останні акти</h2>
     <table class="admin-list"><tbody id="rows"></tbody></table>`;
 
-  const ed = document.getElementById('ed'), src = document.getElementById('src');
-  act_date.valueAsDate = new Date(); signer.value = C.DEFAULT_SIGNER;
+  const ed = $('ed'), src = $('src');
+  $('act_date').valueAsDate = new Date(); $('signer').value = C.DEFAULT_SIGNER;
   let htmlMode = false;
   const getHtml = () => cleanHtml(htmlMode ? src.value : ed.innerHTML);
   document.querySelectorAll('.editor-bar [data-c]').forEach(b => {
     b.onmousedown = e => e.preventDefault();
     b.onclick = () => { if (!htmlMode) { ed.focus(); document.execCommand(b.dataset.c); } };
   });
-  htmlBtn.onclick = () => {
+  $('htmlBtn').onclick = () => {
     htmlMode = !htmlMode;
-    htmlBtn.classList.toggle('on', htmlMode);
+    $('htmlBtn').classList.toggle('on', htmlMode);
     if (htmlMode) { src.value = cleanHtml(ed.innerHTML).replace(/<\/p>/g, '</p>\n'); ed.style.display = 'none'; src.style.display = 'block'; }
     else { ed.innerHTML = cleanHtml(src.value) || '<p><br></p>'; src.style.display = 'none'; ed.style.display = 'block'; }
   };
@@ -76,31 +80,52 @@
   if (editId) {
     const { data: a } = await sb.from('acts').select('*').eq('id', editId).single();
     if (a) {
-      h.textContent = 'Редагувати акт';
-      for (const k of ['act_type', 'number', 'act_date', 'topic', 'status', 'title', 'signer']) document.getElementById(k).value = a[k] ?? '';
-      ed.innerHTML = safeBody(a.body); save.textContent = 'Зберегти зміни';
+      $('h').textContent = 'Редагувати акт';
+      for (const k of ['act_type', 'number', 'act_date', 'status', 'title', 'signer']) $(k).value = a[k] ?? '';
+      ed.innerHTML = safeBody(a.body); $('save').textContent = 'Зберегти зміни';
+    }
+  } else if (amendId) {
+    // Акт про внесення змін: номер, назва й вступна фраза формуються автоматично
+    const { data: o } = await sb.from('acts').select('id,act_type,number,act_date,title').eq('id', amendId).single();
+    if (o) {
+      const cnt = await sb.from('acts').select('id', { count: 'exact', head: true }).eq('amends_id', o.id);
+      const n = (cnt.error ? 0 : cnt.count || 0) + 1;
+      const gen = GEN[o.act_type] || 'акта';
+      const ref = `${gen} від ${fmtLong(o.act_date)} № ${o.number}`;
+      $('h').textContent = 'Створити акт про внесення змін';
+      $('act_type').value = o.act_type;
+      $('number').value = `${o.number}-зм${n}`;
+      $('title').value = `Про внесення змін до ${ref} «${o.title}»`;
+      ed.innerHTML = `<p>Внести до ${esc(ref)} «${esc(o.title)}» такі зміни:</p><p>1) </p>`;
+      $('amendInfo').innerHTML = `<div class="doc-rel">Акт про внесення змін до: <a href="act.html?id=${o.id}">${esc(actTitle(o))}</a>.
+        Номер і назву сформовано автоматично, за потреби їх можна змінити.${cnt.error ? '<br><span class="err">Щоб зберегти зв’язок між актами, виконайте SQL-оновлення supabase/migration_amendments.sql.</span>' : ''}</div>`;
+    } else {
+      $('amendInfo').innerHTML = '<p class="err">Початковий акт не знайдено.</p>';
     }
   }
 
-  f.onsubmit = async e => {
-    e.preventDefault(); msg.className = 'err'; msg.textContent = '';
+  $('f').onsubmit = async e => {
+    e.preventDefault(); const msg = $('msg'); msg.textContent = '';
     const body = getHtml();
     if (!body) { msg.textContent = 'Введіть текст акта.'; return; }
-    const rec = { act_type: act_type.value, number: number.value.trim(), act_date: act_date.value, topic: topic.value,
-                  status: status.value, title: title.value.trim(), body, signer: signer.value.trim() };
-    save.disabled = true;
-    const { error } = editId ? await sb.from('acts').update(rec).eq('id', editId) : await sb.from('acts').insert(rec);
-    save.disabled = false;
+    const rec = { act_type: $('act_type').value, number: $('number').value.trim(), act_date: $('act_date').value,
+                  status: $('status').value, title: $('title').value.trim(), body, signer: $('signer').value.trim() };
+    if (amendId && !editId) rec.amends_id = amendId;
+    $('save').disabled = true;
+    let error = null, newId = null;
+    if (editId) ({ error } = await sb.from('acts').update(rec).eq('id', editId));
+    else { const r = await sb.from('acts').insert(rec).select('id').single(); error = r.error; newId = r.data && r.data.id; }
+    $('save').disabled = false;
     if (error) { msg.textContent = 'Не вдалося зберегти: ' + error.message; return; }
-    location.href = 'index.html';
+    location.href = amendId && newId ? 'act.html?id=' + newId : 'index.html';
   };
 
   async function loadRows() {
     const { data } = await sb.from('acts').select('id,act_type,number,act_date,title').order('id', { ascending: false }).limit(15);
-    rows.innerHTML = (data || []).map(a => `<tr>
+    $('rows').innerHTML = (data || []).map(a => `<tr>
       <td>${fmtDate(a.act_date)}</td><td><a href="act.html?id=${a.id}">${esc(actTitle(a))}</a></td>
       <td class="row-act"><a href="admin.html?edit=${a.id}"><span class="ico ico-edit" aria-hidden="true"></span>Редагувати</a>${isAdmin ? ` | <a href="#" data-del="${a.id}">Видалити</a>` : ''}</td></tr>`).join('');
-    rows.querySelectorAll('[data-del]').forEach(x => x.onclick = async ev => {
+    $('rows').querySelectorAll('[data-del]').forEach(x => x.onclick = async ev => {
       ev.preventDefault();
       if (!confirm('Видалити акт безповоротно?')) return;
       await sb.from('acts').delete().eq('id', x.dataset.del); loadRows();
