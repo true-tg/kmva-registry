@@ -3,11 +3,15 @@ const sb = supabase.createClient(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtDate = d => new Date(d + 'T00:00:00').toLocaleDateString('uk-UA', {day:'2-digit', month:'2-digit', year:'numeric'});
+const fmtDateTime = s => new Date(s).toLocaleString('uk-UA', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+const isScheduled = a => !!(a && a.publish_at && new Date(a.publish_at) > new Date());
 const statusLabel = s => s === 'active' ? 'Чинний' : 'Втратив чинність';
 const actTitle = a => `${C.TYPES[a.act_type] || ''} № ${a.number} «${a.title}»`;
 const qs = k => new URLSearchParams(location.search).get(k);
 const fmtLong = d => new Date(d + 'T00:00:00').toLocaleDateString('uk-UA', {day:'numeric', month:'long', year:'numeric'}).replace(/\s*р\.?$/, '') + ' р.';
 const GEN = { order: 'розпорядження', ksoy: 'рішення Комітету стратегічної оборони Києва' };
+const DOC_ORG = C.DOC_ORG || 'Київська міська військова адміністрація';
+const DOC_CITY = C.DOC_CITY || 'Київ';
 // Режим перегляду для громадян (лише попередній перегляд, зберігається на час сесії браузера)
 function isPublic() { try { return sessionStorage.getItem('viewMode') === 'public'; } catch (e) { return false; } }
 function setViewMode(m) { try { sessionStorage.setItem('viewMode', m); } catch (e) {} location.reload(); }
