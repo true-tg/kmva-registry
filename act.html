@@ -1,0 +1,128 @@
+<!doctype html><html lang="uk"><head><title>Акт — Єдиний реєстр</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="assets/coa.webp"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap&subset=cyrillic" rel="stylesheet"><link rel="stylesheet" href="css/style.css?v=5"></head><body>
+<header id="top"></header>
+<div class="layout"><aside id="side"></aside><main id="content"><p class="muted">Завантаження…</p></main></div>
+<footer>Система внутрішнього користування</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script src="js/diff.js?v=5"></script>
+<script>
+(async () => {
+  const printMode = qs('print') === '1';
+  if (printMode) document.body.classList.add('print-mode');
+  const ctx = await initPage('');
+  if (!ctx) return;
+  const $ = x => document.getElementById(x);
+  const id = Number(qs('id'));
+  const el = $('content');
+  const { data: a, error } = await sb.from('acts').select('*').eq('id', id).single();
+  if (error || !a || (isPublic() && isScheduled(a))) { el.innerHTML = '<p class="err">Акт не знайдено.</p><a class="btn light" href="index.html">До списку</a>'; return; }
+  document.title = actTitle(a);
+  const staff = !isPublic() && ['editor', 'admin'].includes(ctx.profile.role);
+
+  // зв'язки між актами (працює після міграції amends_id)
+  let parent = null, children = [];
+  if (a.amends_id) {
+    const r = await sb.from('acts').select('id,act_type,number,act_date,title').eq('id', a.amends_id).single();
+    parent = r.data || null;
+  }
+  const rc = await sb.from('acts').select('id,act_type,number,act_date,title').eq('amends_id', a.id).order('act_date');
+  if (!rc.error) children = rc.data || [];
+  const rel = x => `<a href="act.html?id=${x.id}">${esc(C.TYPES[x.act_type] || '')} від ${fmtLong(x.act_date)} № ${esc(x.number)}</a>`;
+
+  // розмітка документа (для поточного акта і для перегляду старих версій)
+  const docHtml = x => `
+      <p class="doc-org">${esc(DOC_ORG)}</p>
+      <p class="doc-kind">${esc(C.TYPES[x.act_type] || '')}</p>
+      <p class="doc-ref">від ${fmtLong(x.act_date)} № ${esc(x.number)}</p>
+      <p class="doc-city">${esc(DOC_CITY)}</p>
+      <p class="doc-title">${esc(x.title)}</p>
+      <div class="doc-body">${safeBody(x.body)}</div>
+      ${x.signer ? `<p class="doc-sign">${esc(x.signer)}</p>` : ''}`;
+
+  el.innerHTML = `
+    <div class="actions">
+      <a class="btn light" href="index.html"><span class="ico ico-arrow flip" aria-hidden="true"></span>До списку</a>
+      <a class="btn light" href="act.html?id=${a.id}&print=1" target="_blank" rel="noopener"><span class="ico ico-print" aria-hidden="true"></span>Версія для друку</a>
+      ${staff ? `<a class="btn light" href="admin.html?edit=${a.id}"><span class="ico ico-edit" aria-hidden="true"></span>Редагувати</a>
+      <a class="btn" href="admin.html?amend=${a.id}"><span class="ico ico-add" aria-hidden="true"></span>Створити акт про зміни</a>` : ''}
+    </div>
+    ${staff && isScheduled(a) ? `<div class="sch-note"><span class="ico ico-time" aria-hidden="true"></span>Заплановано до публікації: <b>${fmtDateTime(a.publish_at)}</b>. До цього часу акт бачать лише редактори й адміністратори.</div>` : ''}
+    ${staff ? `<div class="tabs" role="tablist">
+      <button class="tab on" id="tabText" role="tab" aria-selected="true" type="button">Текст акта</button>
+      <button class="tab" id="tabHist" role="tab" aria-selected="false" type="button"><span class="ico ico-time" aria-hidden="true"></span>Історія змін</button>
+    </div>` : ''}
+    <div id="panelText">
+      <article class="doc">
+        ${docHtml(a)}
+        ${parent ? `<div class="doc-rel">Цей акт вносить зміни до: ${rel(parent)} «${esc(parent.title)}»</div>` : ''}
+        ${children.length ? `<div class="doc-rel">Акти про внесення змін до цього акта:<ul>${children.map(c => `<li>${rel(c)}</li>`).join('')}</ul></div>` : ''}
+        <p class="meta">Статус: <span class="badge ${a.status}">${statusLabel(a.status)}</span>${staff && a.updated_at ? ` | Остання зміна: ${fmtDateTime(a.updated_at)}${a.updated_by_name ? ', ' + esc(a.updated_by_name) : ''}` : ''}</p>
+      </article>
+    </div>
+    ${staff ? '<div id="panelHist" hidden></div>' : ''}`;
+
+  if (staff) {
+    let loaded = false;
+    const show = h => {
+      $('tabText').classList.toggle('on', !h); $('tabHist').classList.toggle('on', h);
+      $('tabText').setAttribute('aria-selected', !h); $('tabHist').setAttribute('aria-selected', h);
+      $('panelText').hidden = h; $('panelHist').hidden = !h;
+      if (h && !loaded) { loaded = true; loadHistory(); }
+    };
+    $('tabText').onclick = () => show(false);
+    $('tabHist').onclick = () => show(true);
+    if (location.hash === '#history') show(true);
+  }
+
+  async function loadHistory() {
+    const box = $('panelHist');
+    box.innerHTML = '<p class="muted">Завантаження історії…</p>';
+    const r = await sb.from('act_versions').select('*').eq('act_id', a.id).order('version_no');
+    if (r.error) { box.innerHTML = '<p class="err">Історія недоступна. Виконайте SQL-оновлення supabase/migration_versions_scheduling.sql.</p>'; return; }
+    const cur = { ...a, version_no: a.version || 1, saved_at: a.updated_at, saved_by_name: a.updated_by_name, current: true };
+    const vs = [...r.data, cur];
+    const label = v => `Версія ${v.version_no}${v.current ? ' (поточна)' : ''} — ${fmtDateTime(v.saved_at)}`;
+    const opts = sel => vs.map(v => `<option value="${v.version_no}"${v.version_no === sel ? ' selected' : ''}>${esc(label(v))}</option>`).join('');
+    const rows = [...vs].reverse().map(v => `<tr>
+      <td><b>${v.version_no}</b>${v.current ? ' <span class="badge">поточна</span>' : ''}</td>
+      <td>${fmtDateTime(v.saved_at)}</td><td>${esc(v.saved_by_name || '—')}</td>
+      <td class="row-act"><a href="#" data-view="${v.version_no}">Переглянути текст</a></td></tr>`).join('');
+    box.innerHTML = `
+      <p class="muted">Кожне збереження зі змінами створює нову версію; попередні версії не втрачаються.</p>
+      <table class="admin-list"><thead><tr><th>Версія</th><th>Дата й час</th><th>Автор</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+      ${vs.length < 2 ? '<p class="muted" style="margin-top:16px">Це єдина версія акта. Порівняння стане доступним після першого редагування.</p>' : `
+      <h2 class="page-h" style="font-size:19px;margin-top:30px">Порівняння версій</h2>
+      <div class="hist-controls">
+        <label>Від версії<select id="cmpFrom">${opts(vs[vs.length - 2].version_no)}</select></label>
+        <label>До версії<select id="cmpTo">${opts(vs[vs.length - 1].version_no)}</select></label>
+        <label class="chk"><input type="checkbox" id="onlyCh"> Лише змінені фрагменти</label>
+      </div>
+      <div id="cmpOut" class="diff"></div>`}
+      <div id="verView"></div>`;
+    if (vs.length > 1) {
+      const run = () => {
+        const f = vs.find(v => v.version_no == $('cmpFrom').value), t = vs.find(v => v.version_no == $('cmpTo').value);
+        if (f.version_no === t.version_no) { $('cmpOut').innerHTML = '<p class="muted">Оберіть дві різні версії.</p>'; return; }
+        const [o, n] = f.version_no < t.version_no ? [f, t] : [t, f];
+        $('cmpOut').innerHTML = ActDiff.compare(o, n);
+      };
+      $('cmpFrom').onchange = $('cmpTo').onchange = run;
+      $('onlyCh').onchange = () => $('cmpOut').classList.toggle('only-changes', $('onlyCh').checked);
+      run();
+    }
+    box.querySelectorAll('[data-view]').forEach(x => x.onclick = e => {
+      e.preventDefault();
+      const v = vs.find(z => z.version_no == x.dataset.view);
+      $('verView').innerHTML = `<div class="doc-rel">Версія ${v.version_no}${v.current ? ' (поточна)' : ''} від ${fmtDateTime(v.saved_at)}, автор: ${esc(v.saved_by_name || '—')}</div><article class="doc" style="margin-top:20px">${docHtml(v)}</article>`;
+      $('verView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+  if (printMode) setTimeout(() => window.print(), 300);
+})().catch(e => {
+  const c = document.getElementById('content');
+  if (c) c.innerHTML = '<p class="err">Помилка завантаження сторінки: ' + String((e && e.message) || e).replace(/</g, '&lt;') + '</p><p class="muted">Якщо в повідомленні є «is not defined», файли js/app.js, js/diff.js або css/style.css застарілі чи лежать не в своїх папках. Замініть їх на нові й оновіть сторінку через Ctrl+F5.</p>';
+  console.error(e);
+});
+</script></body></html>

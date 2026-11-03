@@ -1,0 +1,167 @@
+<!doctype html><html lang="uk"><head><title>Створення акта — Єдиний реєстр</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="assets/coa.webp"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap&subset=cyrillic" rel="stylesheet"><link rel="stylesheet" href="css/style.css?v=5"></head><body>
+<header id="top"></header>
+<div class="layout"><aside id="side"></aside><main id="content"><p class="muted">Завантаження…</p></main></div>
+<footer>Система внутрішнього користування</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script>
+(async () => {
+  const ctx = await initPage('admin');
+  if (!ctx) return;
+  if (isPublic()) { location.replace('index.html'); return; }
+  const $ = id => document.getElementById(id);
+  const el = $('content');
+  if (!['editor', 'admin'].includes(ctx.profile.role)) {
+    el.innerHTML = '<p class="err">Недостатньо прав. Доступ мають лише уповноважені співробітники.</p>'; return;
+  }
+  const isAdmin = ctx.profile.role === 'admin';
+  const editId = qs('edit') ? Number(qs('edit')) : null;
+  const amendId = qs('amend') ? Number(qs('amend')) : null;
+
+  el.innerHTML = `
+    <h1 class="page-h" id="h">Створити акт</h1>
+    <div id="amendInfo"></div>
+    <form id="f" class="form">
+      <div class="grid2">
+        <label>Вид акта<select id="act_type">${Object.entries(C.TYPES).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
+        <label>Номер акта<input id="number" required maxlength="60"></label>
+        <label>Дата<input type="date" id="act_date" required></label>
+        <label>Статус<select id="status"><option value="active">Чинний</option><option value="expired">Втратив чинність</option></select></label>
+      </div>
+      <label>Назва акта<input id="title" required maxlength="600"></label>
+      <label>Текст акта</label>
+      <div class="editor-bar" role="toolbar" aria-label="Форматування">
+        <button type="button" data-c="bold" title="Жирний"><b>B</b></button>
+        <button type="button" data-c="italic" title="Курсив"><i>I</i></button>
+        <button type="button" data-c="underline" title="Підкреслений"><u>U</u></button>
+        <button type="button" data-c="justifyLeft" title="По лівому краю">⇤</button>
+        <button type="button" data-c="justifyCenter" title="По центру">↔</button>
+        <button type="button" data-c="justifyRight" title="По правому краю">⇥</button>
+        <button type="button" data-c="justifyFull" title="По ширині">☰</button>
+        <button type="button" data-c="insertUnorderedList" title="Маркований список">• —</button>
+        <button type="button" data-c="insertOrderedList" title="Нумерований список">1.</button>
+        <button type="button" data-c="removeFormat" title="Скинути форматування">Tx</button>
+        <button type="button" id="htmlBtn" title="Редагувати HTML">[HTML]</button>
+      </div>
+      <div id="ed" contenteditable="true" role="textbox" aria-multiline="true"><p><br></p></div>
+      <textarea id="src" spellcheck="false"></textarea>
+      <label style="margin-top:14px">Підпис<input id="signer" maxlength="200"></label>
+      <fieldset class="pub-box">
+        <legend>Публікація</legend>
+        <label>Коли показати акт<select id="pub_mode"><option value="now">Одразу після збереження</option><option value="later">У зазначені дату й час</option></select></label>
+        <div id="pub_when" hidden>
+          <label>Дата й час публікації<input type="datetime-local" id="publish_at"></label>
+          <button type="button" class="btn light" id="pubTomorrow">Завтра о 00:00</button>
+          <p class="muted" id="pubHint">До цього часу акт бачать лише редактори й адміністратори.</p>
+        </div>
+      </fieldset>
+      <div id="msg" class="err" role="status"></div>
+      <button class="btn" type="submit" id="save">Додати на сайт</button>
+      ${editId || amendId ? '<a class="btn light" href="admin.html">Скасувати</a>' : ''}
+    </form>
+    <h2 class="page-h" style="margin-top:40px;font-size:19px">Останні акти</h2>
+    <table class="admin-list"><tbody id="rows"></tbody></table>`;
+
+  const ed = $('ed'), src = $('src');
+  $('act_date').valueAsDate = new Date(); $('signer').value = C.DEFAULT_SIGNER;
+  let htmlMode = false, origFuture = false;
+  const pad = n => String(n).padStart(2, '0');
+  const toLocalInput = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const saveLabel = () => $('save').textContent = editId ? 'Зберегти зміни' : ($('pub_mode').value === 'later' ? 'Запланувати публікацію' : 'Додати на сайт');
+  const syncPub = () => { $('pub_when').hidden = $('pub_mode').value !== 'later'; saveLabel(); };
+  $('pub_mode').onchange = syncPub;
+  $('pubTomorrow').onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); $('publish_at').value = toLocalInput(d); };
+  const getHtml = () => cleanHtml(htmlMode ? src.value : ed.innerHTML);
+  document.querySelectorAll('.editor-bar [data-c]').forEach(b => {
+    b.onmousedown = e => e.preventDefault();
+    b.onclick = () => { if (!htmlMode) { ed.focus(); document.execCommand(b.dataset.c); } };
+  });
+  $('htmlBtn').onclick = () => {
+    htmlMode = !htmlMode;
+    $('htmlBtn').classList.toggle('on', htmlMode);
+    if (htmlMode) { src.value = cleanHtml(ed.innerHTML).replace(/<\/p>/g, '</p>\n'); ed.style.display = 'none'; src.style.display = 'block'; }
+    else { ed.innerHTML = cleanHtml(src.value) || '<p><br></p>'; src.style.display = 'none'; ed.style.display = 'block'; }
+  };
+  // Автоочищення вставки з Word
+  ed.addEventListener('paste', e => {
+    e.preventDefault();
+    const html = e.clipboardData.getData('text/html'), txt = e.clipboardData.getData('text/plain');
+    const clean = html ? cleanHtml(html) : txt.split(/\n+/).filter(l => l.trim()).map(l => `<p>${esc(l)}</p>`).join('');
+    document.execCommand('insertHTML', false, clean);
+  });
+
+  if (editId) {
+    const { data: a } = await sb.from('acts').select('*').eq('id', editId).single();
+    if (a) {
+      $('h').textContent = 'Редагувати акт';
+      for (const k of ['act_type', 'number', 'act_date', 'status', 'title', 'signer']) $(k).value = a[k] ?? '';
+      ed.innerHTML = safeBody(a.body);
+      if (a.publish_at && new Date(a.publish_at) > new Date()) { origFuture = true; $('pub_mode').value = 'later'; $('publish_at').value = toLocalInput(new Date(a.publish_at)); }
+      syncPub();
+    }
+  } else if (amendId) {
+    // Акт про внесення змін: номер, назва й вступна фраза формуються автоматично
+    const { data: o } = await sb.from('acts').select('id,act_type,number,act_date,title').eq('id', amendId).single();
+    if (o) {
+      const cnt = await sb.from('acts').select('id', { count: 'exact', head: true }).eq('amends_id', o.id);
+      const n = (cnt.error ? 0 : cnt.count || 0) + 1;
+      const gen = GEN[o.act_type] || 'акта';
+      const ref = `${gen} від ${fmtLong(o.act_date)} № ${o.number}`;
+      $('h').textContent = 'Створити акт про внесення змін';
+      $('act_type').value = o.act_type;
+      $('number').value = `${o.number}-зм${n}`;
+      $('title').value = `Про внесення змін до ${ref} «${o.title}»`;
+      ed.innerHTML = `<p>Внести до ${esc(ref)} «${esc(o.title)}» такі зміни:</p><p>1) </p>`;
+      $('amendInfo').innerHTML = `<div class="doc-rel">Акт про внесення змін до: <a href="act.html?id=${o.id}">${esc(actTitle(o))}</a>.
+        Номер і назву сформовано автоматично, за потреби їх можна змінити.${cnt.error ? '<br><span class="err">Щоб зберегти зв’язок між актами, виконайте SQL-оновлення supabase/migration_amendments.sql.</span>' : ''}</div>`;
+    } else {
+      $('amendInfo').innerHTML = '<p class="err">Початковий акт не знайдено.</p>';
+    }
+  }
+
+  $('f').onsubmit = async e => {
+    e.preventDefault(); const msg = $('msg'); msg.textContent = '';
+    const body = getHtml();
+    if (!body) { msg.textContent = 'Введіть текст акта.'; return; }
+    const rec = { act_type: $('act_type').value, number: $('number').value.trim(), act_date: $('act_date').value,
+                  status: $('status').value, title: $('title').value.trim(), body, signer: $('signer').value.trim() };
+    if (amendId && !editId) rec.amends_id = amendId;
+    if ($('pub_mode').value === 'later') {
+      const v = $('publish_at').value;
+      if (!v) { msg.textContent = 'Вкажіть дату й час публікації.'; return; }
+      const d = new Date(v);
+      if (d <= new Date()) { msg.textContent = 'Час публікації має бути в майбутньому.'; return; }
+      rec.publish_at = d.toISOString();
+    } else if (editId && origFuture) {
+      rec.publish_at = new Date().toISOString();   // зняти відкладення: показати одразу
+    }
+    $('save').disabled = true;
+    let error = null, newId = null;
+    if (editId) ({ error } = await sb.from('acts').update(rec).eq('id', editId));
+    else { const r = await sb.from('acts').insert(rec).select('id').single(); error = r.error; newId = r.data && r.data.id; }
+    $('save').disabled = false;
+    if (error) { msg.textContent = 'Не вдалося зберегти: ' + error.message; return; }
+    location.href = amendId && newId ? 'act.html?id=' + newId : 'index.html';
+  };
+
+  async function loadRows() {
+    const { data } = await sb.from('acts').select('id,act_type,number,act_date,title,publish_at').order('id', { ascending: false }).limit(15);
+    $('rows').innerHTML = (data || []).map(a => `<tr>
+      <td>${fmtDate(a.act_date)}</td><td><a href="act.html?id=${a.id}">${esc(actTitle(a))}</a>${isScheduled(a) ? ` <span class="item-sch">заплановано на ${fmtDateTime(a.publish_at)}</span>` : ''}</td>
+      <td class="row-act"><a href="admin.html?edit=${a.id}"><span class="ico ico-edit" aria-hidden="true"></span>Редагувати</a>${isAdmin ? ` | <a href="#" data-del="${a.id}">Видалити</a>` : ''}</td></tr>`).join('');
+    $('rows').querySelectorAll('[data-del]').forEach(x => x.onclick = async ev => {
+      ev.preventDefault();
+      if (!confirm('Видалити акт безповоротно?')) return;
+      await sb.from('acts').delete().eq('id', x.dataset.del); loadRows();
+    });
+  }
+  syncPub();
+  loadRows();
+})().catch(e => {
+  const c = document.getElementById('content');
+  if (c) c.innerHTML = '<p class="err">Помилка завантаження сторінки: ' + String((e && e.message) || e).replace(/</g, '&lt;') + '</p><p class="muted">Якщо в повідомленні є «is not defined», файли js/app.js, js/diff.js або css/style.css застарілі чи лежать не в своїх папках. Замініть їх на нові й оновіть сторінку через Ctrl+F5.</p>';
+  console.error(e);
+});
+</script></body></html>

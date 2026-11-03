@@ -1,0 +1,60 @@
+<!doctype html><html lang="uk"><head><title>Єдиний реєстр актів КМВА — КМДА</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><link rel="icon" href="assets/coa.webp"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap&subset=cyrillic" rel="stylesheet"><link rel="stylesheet" href="css/style.css?v=5"></head><body>
+<header id="top"></header>
+<div class="layout"><aside id="side"></aside><main id="content"><p class="muted">Завантаження…</p></main></div>
+<footer>Система внутрішнього користування</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script>
+(async () => {
+  const type = qs('type') || '';
+  const ctx = await initPage(type || 'all');
+  if (!ctx) return;
+  const el = document.getElementById('content');
+  const heading = type ? C.TYPES[type] : 'Усі акти';
+  el.innerHTML = `
+    <h1 class="page-h">${esc(heading)}</h1>
+    <div class="toolbar">
+      <div class="search"><span class="ico ico-search" aria-hidden="true"></span><input type="search" id="q" placeholder="Пошук за назвою або номером" aria-label="Пошук"></div>
+      <select id="status" aria-label="Статус"><option value="">Будь-який статус</option><option value="active">Чинні</option><option value="expired">Втратили чинність</option></select>
+    </div>
+    <div id="list"></div>
+    <p><button class="btn light" id="more" hidden>Показати ще</button></p>`;
+  if (qs('focus') === 'search') document.getElementById('q').focus();
+  let page = 0, timer;
+  let cols = 'id,act_type,number,act_date,status,title,publish_at';
+  async function load(reset) {
+    if (reset) { page = 0; list.innerHTML = ''; }
+    let q = sb.from('acts').select(cols, { count: 'exact' })
+      .order('act_date', { ascending: false }).order('id', { ascending: false })
+      .range(page * C.PAGE_SIZE, page * C.PAGE_SIZE + C.PAGE_SIZE - 1);
+    if (type) q = q.eq('act_type', type);
+    // у режимі перегляду для громадян приховуємо акти, час публікації яких ще не настав
+    if (isPublic() && cols.includes('publish_at')) q = q.lte('publish_at', new Date().toISOString());
+    const st = document.getElementById('status').value;
+    if (st) q = q.eq('status', st);
+    const term = document.getElementById('q').value.replace(/[,()%*\\]/g, ' ').trim();
+    if (term) q = q.or(`title.ilike.%${term}%,number.ilike.%${term}%`);
+    const { data, count, error } = await q;
+    if (error && /publish_at/.test(error.message) && cols.includes('publish_at')) { cols = cols.replace(',publish_at', ''); return load(reset); }
+    if (error) { list.innerHTML = '<p class="err">Не вдалося завантажити акти.</p>'; return; }
+    if (reset && !data.length) list.innerHTML = '<p class="muted">Актів за цими умовами не знайдено.</p>';
+    list.insertAdjacentHTML('beforeend', data.map(a => `
+      <article class="item">
+        <div class="item-head">${esc(C.TYPES[a.act_type] || '')} від ${fmtDate(a.act_date)} № ${esc(a.number)}${a.status === 'expired' ? ' <span class="item-exp">втратило чинність</span>' : ''}${isScheduled(a) ? ` <span class="item-sch">заплановано на ${fmtDateTime(a.publish_at)}</span>` : ''}</div>
+        <a class="item-link" href="act.html?id=${a.id}">${esc(a.title)}</a>
+      </article>`).join(''));
+    page++;
+    more.hidden = page * C.PAGE_SIZE >= count;
+  }
+  document.getElementById('q').oninput = () => { clearTimeout(timer); timer = setTimeout(() => load(true), 300); };
+  document.getElementById('status').onchange = () => load(true);
+  more.onclick = () => load(false);
+  load(true);
+})().catch(e => {
+  const c = document.getElementById('content');
+  if (c) c.innerHTML = '<p class="err">Помилка завантаження сторінки: ' + String((e && e.message) || e).replace(/</g, '&lt;') + '</p><p class="muted">Якщо в повідомленні є «is not defined», файли js/app.js, js/diff.js або css/style.css застарілі чи лежать не в своїх папках. Замініть їх на нові й оновіть сторінку через Ctrl+F5.</p>';
+  console.error(e);
+});
+</script></body></html>
